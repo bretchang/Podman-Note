@@ -1,0 +1,134 @@
+#WSL安裝失敗問題
+---------------------------------------------------------
+#如果PowerShell打開輸入WSL沒反應的話
+#改手動去官網下載 .msi檔 安裝
+#https://github.com/microsoft/WSL/releases
+---------------------------------------------------------
+
+
+# WSL下download Ubuntu (Windows Subsystem for Linux, WSL 公用電腦都有裝好 用Windows PowerShell打開就可以直接用)
+---------------------------------------------------------
+#確認有沒有安裝
+wsl --status 
+#Default指定只能在版本2
+wsl --set-default-version 2
+#下載更新
+wsl --update
+#從網路版下載linux操作環境Ubuntu
+wsl --install -d ubuntu --web-download
+#Enter new UNIX username: ha33
+#New password:1234
+---------------------------------------------------------
+
+
+
+# ubuntu內安裝ssh server
+---------------------------------------------------------
+sudo apt install openssh-server
+sudo service ssh start
+---------------------------------------------------------
+
+
+
+# Podman install
+---------------------------------------------------------
+#已經在linux內了，裡面所需 "下載工具" & Podman 安裝到位
+#更新系統包
+sudo apt-get update
+#安裝必要的依賴項和證書
+sudo apt-get install ca-certificates curl
+#創建目錄
+sudo install -m 0755 -d /etc/apt/keyrings
+#添加 Podman 的官方存儲庫
+
+. /etc/os-release
+sudo sh -c "echo 'deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/x${VERSION_ID}/ /' > /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list"
+sudo wget -nv https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/x${VERSION_ID}/Release.key -O /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_stable.asc
+
+#再更新包一次
+sudo apt-get update
+#安裝 Podman
+sudo apt-get install -y podman
+#驗證安裝 (會顯示podman版本別)
+podman --version
+---------------------------------------------------------
+
+
+# Podman就位
+---------------------------------------------------------
+#列出 Podman 容器
+podman ps
+---------------------------------------------------------
+
+
+
+# DB環境建置 mariadb setup(第一台電腦新建要用，已經建過則跳過此步驟,linux密碼就是對應ROOT_PASSWORD)
+---------------------------------------------------------
+#查詢目前的容器
+sudo podman ps -a 
+#暫停container
+sudo podman stop <容器 ID 或名称>
+#移除container
+sudo podman rm <容器 ID 或名称>
+#Podman啟動一個新容器,並設定端口映射
+sudo podman run --detach -p 3306:3306 --name auth_mariadb --env MARIADB_ROOT_PASSWORD=1234 docker.io/library/mariadb:latest
+#Docer容器內startup mariadb service
+sudo podman start auth_mariadb
+# 進入 podman 容器 (開始進入到mariadb層級)
+sudo podman exec -it auth_mariadb bash
+#添加IP對應關係
+echo -e "\n[mysqld]\nbind-address = 0.0.0.0" >> /etc/mysql/my.cnf
+# enter in mariadb
+mariadb -uroot -p
+#先退出mariadb
+exit
+#再退出Podman
+exit
+---------------------------------------------------------
+
+
+
+#導入DataBase
+---------------------------------------------------------
+#Ubuntu os宣告再來要指定資料夾位置 "D槽"
+cd /mnt/d
+#Copy要用的目標備份(以下範例檔名:whitelist_backup.sql 複製到Podman 容器中)
+sudo podman cp whitelist_backup.sql auth_mariadb:whitelist_backup.sql 
+#Ubunto底下執行podman來操作mariadb
+sudo podman exec -it auth_mariadb bash
+#新建為 wl 的資料庫(還是空資料庫)
+mariadb -u root -p -e "CREATE DATABASE wl"
+#空資料庫匯入備份的內容
+mariadb -u root -p wl < whitelist_backup.sql
+---------------------------------------------------------
+
+
+#給 ha33 remote 權限
+---------------------------------------------------------
+mariadb -uroot -p
+GRANT ALL PRIVILEGES ON *.* TO 'ha33'@'%' IDENTIFIED BY '1234';
+FLUSH PRIVILEGES;
+
+
+
+#進入DB確認內容檢查是否有成功備份
+---------------------------------------------------------
+show databases;
+use wl;
+show tables;
+#有看到對應內容即為新創建whitelist DB成功使用中
+#(apply, hist, whitelist) 總共這三張table
+#確認是否為最新資料 hist會看到最新登入時間
+select * from hist;
+---------------------------------------------------------
+
+
+
+#備份DB (正常使用定期要備份DB再使用此段)
+---------------------------------------------------------
+wsl
+sudo podman exec -it auth_mariadb bash
+mariadb-dump --user root --password --lock-tables --databases wl > whitelist_backup.sql
+exit
+sudo podman cp auth_mariadb:whitelist_backup.sql whitelist_backup.sql
+sudo cp whitelist_backup.sql /mnt/d/whitelist_backup.sql
