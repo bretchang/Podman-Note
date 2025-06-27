@@ -1,0 +1,127 @@
+#在個人PC
+#進入linux
+wsl
+#指定專案資料夾
+cd "/mnt/d/2025/Q1/Rolling Check Web only view"
+cd "/mnt/d/github/data_science_ui/genetic_algorithm_learning"
+cd "/mnt/d/github/data_science_ui/pca_learning"
+cd "/mnt/d/github/data_science_ui/supervised_regression"
+cd "/mnt/d/github/data_science_ui/supervised_classification"
+
+#將專案檔案建立映像檔
+podman build -t rolling_check_web .
+podman build -t genetic_algorithm_tutorial .
+podman build -t pca_tutorial .
+podman build -t supervised_regression_tutorial .
+podman build -t supervised_classification_tutorial .
+
+
+#將映像檔儲存到指定資料夾 (不儲存會存在linux的映象空間)
+-o genetic_algorithm_tutorial.tar：指定輸出的 tar 檔名和位置（預設會輸出到你目前所在的資料夾）。
+podman save -o rolling_check_web.tar rolling_check_web
+podman save -o genetic_algorithm_tutorial.tar genetic_algorithm_tutorial
+podman save -o pca_tutorial.tar pca_tutorial
+podman save -o supervised_regression_tutorial.tar supervised_regression_tutorial
+podman save -o supervised_classification_tutorial.tar supervised_classification_tutorial
+
+#查看映像空間
+podman images
+#刪除沒有用的映像檔 podman rmi <IMAGE_ID>
+podman rmi 5d02bbf0dca5
+
+
+#使用.78 pc
+#進入linux
+wsl
+#指定位置
+cd "/mnt/d/HM10_PHM"
+#先確認裡面有哪些容器
+sudo podman ps
+#再確認裡面有哪些映像
+sudo podman images
+#確定自己的容器不在裡面的話要先load映像檔
+sudo podman load -i rolling_check_web.tar
+sudo podman load -i genetic_algorithm_tutorial.tar
+sudo podman load -i pca_tutorial.tar
+sudo podman load -i supervised_regression_tutorial.tar
+sudo podman load -i supervised_classification_tutorial.tar
+#再查看映像空間看專案映像有沒有在裡面
+sudo podman images
+
+#啟動容器
+sudo podman run -d \
+  --name rolling_check \
+  -p 9527:9527 \
+  -v /mnt/d/HM10_PHM/AutoRollingCheck/Data:/data \
+  -v /mnt/d/HM10_PHM/AutoRollingCheck/Plot:/plots \
+  -e DATA_PATH=/data \
+  -e PLOT_PATH=/plots \
+  localhost/rolling_check_web:latest
+
+##參數說明：
+-d：在後台運行容器
+--name rolling_check：為容器命名，方便管理
+-p 9527:9527：將容器的9527端口映射到主機的9527端口
+-v /mnt/phm_data:/data：將主機上的 /mnt/phm_data 掛載到容器內的 /data
+-v /mnt/phm_plots:/plots：將主機上的 /mnt/phm_plots 掛載到容器內的 /plots
+-e DATA_PATH=/data：設置環境變量 DATA_PATH 為容器內的 /data
+-e PLOT_PATH=/plots：設置環境變量 PLOT_PATH 為容器內的 /plots
+
+sudo podman run -d \
+  --name genetic_algorithm_tutorial \
+  -p 9001:9001 \
+  localhost/genetic_algorithm_tutorial:latest
+
+sudo podman run -d \
+  --name pca_tutorial \
+  -p 9002:9002 \
+  localhost/pca_tutorial:latest
+
+sudo podman run -d \
+  --name supervised_regression_tutorial \
+  -p 9003:9003 \
+  localhost/supervised_regression_tutorial:latest
+
+sudo podman run -d \
+  --name supervised_classification_tutorial \
+  -p 9004:9004 \
+  localhost/supervised_classification_tutorial:latest
+
+#檢查容器啟動情況
+sudo podman ps -a
+
+✅ 判斷容器是否啟動的方法：
+看 STATUS 欄位，如果寫的是：
+Up XX minutes ago → ✅ 表示容器已經啟動中
+Exited (狀態碼) → ❌ 表示容器已經結束執行或異常退出
+Created → ⏳ 表示容器還沒啟動
+Stopped → ⛔ 容器已經停止但尚未刪除
+
+#開啟一個新的CMD
+#Podman 在容器建立時已經透過 -p 9527:9527 的參數，將容器內的 9527 埠對應到主機上的 9527 埠。
+若你希望從其他電腦或網路設備透過主機的特定 IP（例如 10.9.205.78）來存取該服務，則可能需要使用 netsh interface portproxy 指令來做埠轉接
+netsh interface portproxy add v4tov4 listenaddress=10.9.205.78 listenport=9527 connectaddress=localhost connectport=9527
+netsh interface portproxy add v4tov4 listenaddress=10.9.205.78 listenport=9001 connectaddress=localhost connectport=9001
+netsh interface portproxy add v4tov4 listenaddress=10.9.205.78 listenport=9002 connectaddress=localhost connectport=9002
+netsh interface portproxy add v4tov4 listenaddress=10.9.205.78 listenport=9003 connectaddress=localhost connectport=9003
+netsh interface portproxy add v4tov4 listenaddress=10.9.205.78 listenport=9004 connectaddress=localhost connectport=9004
+#檢查所有開啟的port
+netsh interface portproxy show all
+
+完成
+
+如果要更新的話
+用 .tar 檔案匯入新的映像
+sudo podman load -i supervised_regression_tutorial.tar
+停止並刪除原本的容器
+sudo podman stop supervised_regression_tutorial
+sudo podman rm supervised_regression_tutorial
+用新 image 啟動新的容器
+
+
+
+
+
+
+
+
