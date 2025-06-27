@@ -1,0 +1,45 @@
+#Windows PowerShell打開
+---------------------------------------------------------
+#進入wsl
+wsl
+---------------------------------------------------------
+
+
+# Startup podman
+---------------------------------------------------------
+#先啟動Docer服務
+sudo service podman start
+#列出 Docker 容器的命令，這時候應該是沒有容器ID待我們命令要做事
+sudo podman ps
+---------------------------------------------------------
+
+
+# DB把備份導入
+---------------------------------------------------------
+#Docker啟動一個新容器,並設定端口映射
+sudo podman run --detach -p 3306:3306 --name auth_mariadb --env MARIADB_ROOT_PASSWORD=1234  mariadb:latest
+#Docer容器內startup mariadb service
+sudo podman start auth_mariadb
+# 進入 Docker 容器 (開始進入到mariadb層級)
+sudo podman exec -it auth_mariadb bash
+# enter in mariadb
+mariadb -uroot -p
+---------------------------------------------------------
+
+
+#導入DataBase
+---------------------------------------------------------
+#先退出mariadb
+exit
+#再退出Docker
+exit
+#Ubuntu os宣告再來要指定資料夾位置 "D槽"
+cd /mnt/d
+#Copy要用的目標備份(以下範例檔名:whitelist_backup.sql 複製到podman 容器中)
+sudo podman cp whitelist_backup.sql auth_mariadb:whitelist_backup.sql 
+#Ubunto底下執行docker來操作mariadb
+sudo podman exec -it auth_mariadb bash
+#新建為 wl 的資料庫(還是空資料庫)
+mariadb -u root -p -e "CREATE DATABASE wl"
+#空資料庫匯入備份的內容
+mariadb -u root -p wl < whitelist_backup.sql
