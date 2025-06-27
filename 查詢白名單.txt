@@ -1,0 +1,31 @@
+#命令提示視窗 SSH連線到.78
+#以下所有用到密碼都是1234
+ssh ha33@10.9.205.78 -p 2222
+
+#.78電腦進入 linux (切入linux頭銜為ha33@WINPCHA0007977)
+#linux內啟動Docker & 進入 mariadb (切入mariadb頭銜為root@WINPCHA0007977)
+sudo docker exec -it auth_mariadb bash
+sudo podman exec -it auth_mariadb bash
+
+#啟動mysql (切入後頭銜轉為mysql>)
+mariadb -uroot -p
+
+#確認有哪些database (mysql結尾一定要用;)
+show databases;
+
+#進到白名單
+use wl;
+
+#確認有哪些table
+show tables;
+
+#調白名單出來看
+select * from whitelist;
+
+#調歷史紀錄
+select * from hist;
+
+#離開
+exit
+
+#之後cmd視窗直接關掉也可以
